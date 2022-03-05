@@ -1,112 +1,84 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
-#define DATA_PIN 2
-#define LED_COUNT 9
+#include <list>
+
+#define DATA_PIN 4
+#define LED_COUNT 20
 #define BRIGHTNESS 70
+#define COLOR_DRIFT 50
+#define MAX_RAYS 5
+#define RAY_SPAWN_CHANCE 5
 
 CRGB leds[LED_COUNT];
 
-#define LED_WIDTH 3
-#define LED_HEIGHT 3
-#define PATTERN_COUNT 16
-bool patterns[PATTERN_COUNT][3][3] = {
-    {{1, 0, 1},
-     {0, 0, 0},
-     {1, 0, 1}},
-
-    {{0, 1, 0},
-     {1, 1, 1},
-     {0, 1, 0}},
-
-    {{1, 1, 1},
-     {1, 0, 1},
-     {1, 1, 1}},
-
-    {{0, 0, 0},
-     {0, 1, 0},
-     {0, 0, 0}},
-
-    {{1, 0, 1},
-     {0, 1, 0},
-     {1, 0, 1}},
-
-    {{0, 1, 0},
-     {1, 0, 1},
-     {0, 1, 0}},
-
-    {{1, 0, 0},
-     {0, 1, 0},
-     {0, 0, 1}},
-
-    {{0, 0, 1},
-     {0, 1, 0},
-     {1, 0, 0}},
-
-    {{1, 1, 0},
-     {1, 0, 1},
-     {0, 1, 1}},
-
-    {{0, 1, 1},
-     {1, 0, 1},
-     {1, 1, 0}},
-
-    {{1, 1, 1},
-     {0, 0, 0},
-     {1, 1, 1}},
-
-    {{1, 0, 1},
-     {1, 0, 1},
-     {1, 0, 1}},
-
-    {{0, 0, 0},
-     {1, 1, 1},
-     {0, 0, 0}},
-
-    {{0, 1, 0},
-     {0, 1, 0},
-     {0, 1, 0}},
-
-    {{1, 0, 1},
-     {1, 1, 1},
-     {1, 0, 1}},
-
-    {{1, 1, 1},
-     {0, 1, 0},
-     {1, 1, 1}},
+struct Ray {
+    CRGB color;
+    int origin;
+    int size;
 };
 
-int LAST_PATTERN_INDEX = 0;
+std::list<Ray> rays{};
+
+
+CRGB baseColor{static_cast<uint8_t>(random(70)), static_cast<uint8_t>(random(70)), static_cast<uint8_t>(random(70))};
 
 void setup() {
     FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, LED_COUNT);
     FastLED.setBrightness(BRIGHTNESS);
 }
 
+uint8_t driftColor(int color) {
+    int result = color + random(COLOR_DRIFT) - COLOR_DRIFT / 2;
+    while (result < 0) {
+        result += 100;
+    }
+    result %= 100;
+    return result;
+}
+
+Ray createRay(CRGB baseColor) {
+    return {
+        {driftColor(baseColor.red),
+         driftColor(baseColor.green),
+         driftColor(baseColor.blue)},
+        random(LED_COUNT),
+        1};
+}
+
+void setLed(int index, CRGB color) {
+    while (index < 0) {
+        index += LED_COUNT;
+    }
+    index %= LED_COUNT;
+    leds[index] = color;
+}
+
 void loop() {
-    // pattern selection
-    int patternIndex = 0;
-    while (patternIndex == LAST_PATTERN_INDEX) {
-        patternIndex = random(PATTERN_COUNT);
+    if (rays.size() < MAX_RAYS && random(RAY_SPAWN_CHANCE) == 0) {
+        auto ray = createRay(baseColor);
+        baseColor = ray.color;
+        rays.push_back(ray);
     }
 
-    // color variation
-    int red = random(70);
-    int green = random(70);
-    int blue = random(70);
-
     // set leds
-    for (int row = 0; row < 3; row++) {
-        for (int column = 0; column < 3; column++) {
-            int ledIndex = row * LED_WIDTH + column;
-            bool activateLed = patterns[patternIndex][row][column];
-            if (activateLed) {
-                leds[ledIndex] = CRGB(red, green, blue);
-            } else {
-                leds[ledIndex] = CRGB(0, 0, 0);
-            }
+    for (auto &ray : rays) {
+        for (int ledIndex = ray.origin; ledIndex < ray.origin + ray.size; ledIndex++) {
+            setLed(ledIndex, ray.color);
+        }
+        for (int ledIndex = ray.origin; ledIndex > ray.origin - ray.size; ledIndex--) {
+            setLed(ledIndex, ray.color);
+        }
+        ray.size += 1;
+    }
+    auto iterator = rays.begin();
+    while (iterator != rays.end()) {
+        if ((*iterator).size < LED_COUNT) {
+            iterator++;
+        } else {
+            iterator = rays.erase(iterator);
         }
     }
     FastLED.show();
-    delay(100);
+    delay(75);
 }
