@@ -3,12 +3,12 @@
 
 #include <list>
 
-#define DATA_PIN 4
-#define LED_COUNT 20
-#define BRIGHTNESS 70
+#define DATA_PIN 15
+#define LED_COUNT 88
+#define BRIGHTNESS 100
 #define COLOR_DRIFT 50
-#define MAX_RAYS 5
-#define RAY_SPAWN_CHANCE 5
+#define MAX_RAYS 20
+#define RAY_SPAWN_CHANCE 8
 
 CRGB leds[LED_COUNT];
 
@@ -80,5 +80,5 @@ void loop() {
         }
     }
     FastLED.show();
-    delay(75);
+    delay(100);
 }
