@@ -4,9 +4,9 @@
 #include <list>
 
 #define DATA_PIN 15
-#define LED_COUNT 88
+#define LED_COUNT 50
 #define BRIGHTNESS 100
-#define COLOR_DRIFT 50
+#define COLOR_DRIFT 2
 #define MAX_RAYS 20
 #define RAY_SPAWN_CHANCE 8
 
@@ -55,30 +55,15 @@ void setLed(int index, CRGB color) {
 }
 
 void loop() {
-    if (rays.size() < MAX_RAYS && random(RAY_SPAWN_CHANCE) == 0) {
-        auto ray = createRay(baseColor);
-        baseColor = ray.color;
-        rays.push_back(ray);
-    }
-
-    // set leds
-    for (auto &ray : rays) {
-        for (int ledIndex = ray.origin; ledIndex < ray.origin + ray.size; ledIndex++) {
-            setLed(ledIndex, ray.color);
-        }
-        for (int ledIndex = ray.origin; ledIndex > ray.origin - ray.size; ledIndex--) {
-            setLed(ledIndex, ray.color);
-        }
-        ray.size += 1;
-    }
-    auto iterator = rays.begin();
-    while (iterator != rays.end()) {
-        if ((*iterator).size < LED_COUNT) {
-            iterator++;
-        } else {
-            iterator = rays.erase(iterator);
-        }
+    baseColor = CRGB{driftColor(baseColor.red),
+         driftColor(baseColor.green),
+         driftColor(baseColor.blue)};
+    for (int index = 0; index < LED_COUNT; index++) {
+        CRGB varianceColor = CRGB{driftColor(baseColor.red),
+         driftColor(baseColor.green),
+         driftColor(baseColor.blue)};
+        setLed(index, varianceColor);
     }
     FastLED.show();
-    delay(100);
+    delay(50);
 }
